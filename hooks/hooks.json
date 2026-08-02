@@ -1,0 +1,17 @@
+{
+  "description": "Tells Claude which Obsidian vault maps to the current working directory.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/vault-context.py\"",
+            "timeout": 10,
+            "statusMessage": "Locating your Obsidian vault..."
+          }
+        ]
+      }
+    ]
+  }
+}
