@@ -238,7 +238,7 @@ def main():
             lines += ["- [[%s]]" % x for x in sorted(members)]
             emit("sources", fn, "\n".join(lines) + "\n")
 
-        pruned = 0
+        pruned, dropped_topics = 0, []
         for folder_key, keep in expected.items():
             if folder_key not in PRUNED_FOLDERS:
                 continue                       # never prune a folder users write into
@@ -247,6 +247,13 @@ def main():
                 continue
             for f in d.glob("*.md"):
                 if f.name not in keep:
+                    # Losing a topic hub means the config no longer describes how this
+                    # vault is organised. Every note that lived under it has been
+                    # regrouped. That is legitimate after a deliberate config change and
+                    # alarming after an accidental one, and the two look identical in a
+                    # summary line — so name them.
+                    if folder_key == "topics":
+                        dropped_topics.append(f.stem)
                     f.unlink()
                     pruned += 1
 
@@ -290,6 +297,7 @@ def main():
 
         report[vault.id] = {"added": added, "total": len(rows),
                             "topics": len(topic_members), "stale_pruned": pruned,
+                            "topics_removed": dropped_topics,
                             "dangling": dict(dangling)}
 
     cfg.save_entities(entities)
@@ -313,6 +321,14 @@ def main():
             print("  ... and %d more" % (len(new_entities) - 20))
         print("Ask Claude to classify them, or edit %s" % cfg.entities_path())
     for v, r in report.items():
+        if r.get("topics_removed"):
+            print("\nWARNING  %s: %d topic hub(s) no longer exist in your config and "
+                  "were removed:" % (v, len(r["topics_removed"])))
+            for t_ in r["topics_removed"]:
+                print("           - %s" % t_)
+            print("         Every note that lived under them has been regrouped. If you "
+                  "did not\n         intend that, restore the topics in "
+                  "%s and re-run." % cfg.config_path())
         if r["dangling"]:
             print("WARNING %s has dangling links: %s" % (v, r["dangling"]))
     return 0
