@@ -159,6 +159,143 @@ class InspectVault(FixtureCase):
         self.assertNotIn("Someone", res["existing_hubs"])
 
 
+class DerivationUnits(FixtureCase):
+    """Direct tests for the derivation functions.
+
+    The cases above drive everything through the CLI, which proves the whole path
+    works but says nothing about the edges — a hub with one note, a tag that
+    appears once, a note filed under nothing. Those are cheap to reach here and
+    awkward to reach through a subprocess.
+    """
+
+    def setUp(self):
+        super().setUp()
+        import inspect_vault
+        self.iv = inspect_vault
+        self.folders = __import__("config").DEFAULT_FOLDERS
+
+    # ---- unquote ---------------------------------------------------------
+    def test_unquote_strips_a_quoted_yaml_value(self):
+        self.assertEqual(self.iv.unquote('"Vendor: the decision"'),
+                         "Vendor: the decision")
+
+    def test_unquote_leaves_a_bare_value_alone(self):
+        self.assertEqual(self.iv.unquote("  plain value  "), "plain value")
+
+    def test_unquote_does_not_strip_mismatched_quotes(self):
+        self.assertEqual(self.iv.unquote('"unbalanced'), '"unbalanced')
+
+    # ---- read_notes ------------------------------------------------------
+    def write_note(self, sub, title, ntype, tags, hubs, ours=True):
+        d = self.vault / sub
+        d.mkdir(parents=True, exist_ok=True)
+        if ours:
+            body = note(title, "quote text here", source_session="s1",
+                        ntype=ntype, tags="[%s]" % ", ".join(tags))
+        else:
+            body = "---\ntitle: %s\n---\n\nmine\n" % title
+        if hubs:
+            body += "\n\nUp: " + ", ".join("[[%s]]" % h for h in hubs) + "\n"
+        (d / (title + ".md")).write_text(body, encoding="utf-8")
+
+    def test_read_notes_extracts_type_tags_and_hubs(self):
+        self.write_note("01 Notes", "A", "decision", ["cost", "vendor"], ["MOC — X"])
+        got = self.iv.read_notes(self.vault, self.folders)
+        self.assertEqual(len(got), 1)
+        self.assertEqual(got[0]["type"], "decision")
+        self.assertEqual(got[0]["tags"], ["cost", "vendor"])
+        self.assertEqual(got[0]["hubs"], ["MOC — X"])
+
+    def test_read_notes_skips_notes_without_our_frontmatter(self):
+        self.write_note("01 Notes", "Mine", "decision", [], [], ours=False)
+        self.assertEqual(self.iv.read_notes(self.vault, self.folders), [])
+
+    def test_read_notes_skips_the_derived_folders(self):
+        self.write_note("02 Topics", "A Hub", "decision", ["x"], [])
+        self.write_note("03 People", "Someone", "decision", ["x"], [])
+        self.assertEqual(self.iv.read_notes(self.vault, self.folders), [])
+
+    def test_read_notes_handles_a_note_in_no_hub(self):
+        self.write_note("01 Notes", "Orphan", "idea", ["x"], [])
+        got = self.iv.read_notes(self.vault, self.folders)
+        self.assertEqual(got[0]["hubs"], [])
+
+    # ---- derive_topics ---------------------------------------------------
+    def notes(self, spec):
+        return [{"title": t, "type": ty, "tags": tg, "hubs": h}
+                for t, ty, tg, h in spec]
+
+    def test_derive_topics_promotes_a_dominant_tag_to_a_rule(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "insight", ["cost"], ["Money"]),
+                         ("c", "idea", ["misc"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        money = next(t for t in topics if t["title"] == "Money")
+        self.assertIn("cost", money["tags"])
+
+    def test_derive_topics_ignores_a_tag_seen_only_once(self):
+        """One occurrence is not evidence of a rule."""
+        ns = self.notes([("a", "insight", ["oneoff"], ["Money"]),
+                         ("b", "idea", ["misc"], ["Other"]),
+                         ("c", "idea", ["misc"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        money = next(t for t in topics if t["title"] == "Money")
+        self.assertNotIn("oneoff", money["tags"])
+
+    def test_derive_topics_marks_exactly_one_fallback(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "idea", ["misc"], ["Other"]),
+                         ("c", "idea", ["misc"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        self.assertEqual(sum(1 for t in topics if t.get("fallback")), 1)
+
+    def test_derive_topics_keeps_only_hubs_that_have_members(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"])])
+        topics = self.iv.derive_topics(ns, ["Money", "AbandonedEmptyHub"])
+        self.assertEqual([t["title"] for t in topics], ["Money"])
+
+    def test_derive_topics_returns_empty_for_no_notes(self):
+        self.assertEqual(self.iv.derive_topics([], []), [])
+
+    # ---- simulate --------------------------------------------------------
+    def test_simulate_reports_full_reproduction_when_rules_match(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "idea", ["misc"], ["Other"])])
+        topics = [{"title": "Money", "types": [], "tags": ["cost"]},
+                  {"title": "Other", "types": [], "tags": [], "fallback": True}]
+        rep = self.iv.simulate(ns, topics, self.folders)
+        self.assertEqual(rep["percent"], 100.0)
+        self.assertEqual(rep["moved"], [])
+
+    def test_simulate_names_the_notes_that_would_move(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "insight", ["cost"], ["Other"])])
+        topics = [{"title": "Money", "types": [], "tags": ["cost"]},
+                  {"title": "Other", "types": [], "tags": [], "fallback": True}]
+        rep = self.iv.simulate(ns, topics, self.folders)
+        self.assertEqual(rep["reproduced"], 1)
+        self.assertEqual(rep["moved"][0]["title"], "b")
+        self.assertEqual(rep["moved"][0]["from"], ["Other"])
+        self.assertEqual(rep["moved"][0]["to"], ["Money"])
+
+    def test_simulate_on_no_notes_does_not_divide_by_zero(self):
+        rep = self.iv.simulate([], [], self.folders)
+        self.assertEqual(rep["percent"], 100.0)
+        self.assertEqual(rep["total"], 0)
+
+    def test_derivation_round_trips_through_simulate(self):
+        """Derive from observed grouping, then check the derivation reproduces it."""
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "insight", ["cost"], ["Money"]),
+                         ("c", "employment", ["team"], ["People"]),
+                         ("d", "employment", ["team"], ["People"]),
+                         ("e", "idea", ["misc"], ["Other"]),
+                         ("f", "idea", ["misc"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "People", "Other"])
+        rep = self.iv.simulate(ns, topics, self.folders)
+        self.assertEqual(rep["percent"], 100.0, rep["moved"])
+
+
 class MergeWarnsWhenHubsDisappear(FixtureCase):
     """Even with a hand-edited config, losing a hub must not pass silently."""
 
