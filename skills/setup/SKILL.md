@@ -43,6 +43,21 @@ With two or more vaults, do this per vault and make sure the paths do not overla
 ambiguously. Longest match wins, so a nested folder can legitimately override a
 broader one — but say so if you set that up.
 
+### Also ask about documents — do not skip this
+
+`watch` decides which *sessions* feed a vault. `documents` is separate: folders whose
+`.md` files can be mined for notes alongside the sessions. It defaults to empty, and an
+empty value is silent — nothing warns you that your working notes are being ignored.
+
+Ask plainly: *"Do you keep written notes, plans or research as markdown files anywhere?
+I can pull from those too, not just your sessions."*
+
+- If yes, add those folders to `documents`. They are often the same folders as `watch`,
+  so offer that as the easy answer.
+- If they are not sure, describe what it means concretely: *"things like a NOTES.md or a
+  planning doc sitting in a project folder."*
+- If no, leave it empty and say so out loud, so it is a decision rather than a default.
+
 ## 3. Ask their name
 
 *"What name should notes use when they quote you?"* Used in quote attributions.
@@ -89,16 +104,18 @@ Say these are a starting point that can be refined once there are real notes.
 ### If it reports the vault is ALREADY ORGANISED
 
 Do **not** propose a fresh taxonomy. Show them what is there and offer a choice, using
-the real numbers the script printed:
+**the numbers the script actually printed for their vault** — never numbers from an
+example. The shape to follow, with placeholders:
 
-> *"This vault already has 165 notes organised under 7 topics — AI-Driven Development,
-> Business & M&A, Competitive Positioning, and four more. I can keep that organisation
-> (rules derived from your notes reproduce 95% of it, and 8 notes would shift), or
-> reorganise into fresh topics, which would replace all 7 hubs. Which would you prefer?"*
+> *"This vault already has &lt;N&gt; notes organised under &lt;M&gt; topics — &lt;first three hub
+> names&gt;, and &lt;M-3&gt; more. I can keep that organisation (rules derived from your notes
+> reproduce &lt;PERCENT&gt; of it&lt;, and K notes would move&gt;), or reorganise into fresh
+> topics, which would replace all &lt;M&gt; hubs. Which would you prefer?"*
 
-- **Keep it (default).** Use the `derived_topics` array from `--json` output verbatim.
-  Then tell them plainly which notes still shift — the script lists them — so it is
-  their call, not a surprise.
+- **Keep it (default).** Use the `derived_topics` array from the `--json` output
+  verbatim. Then relay the differences the script reports, and keep its distinction:
+  notes that **gain** a hub are still reachable everywhere they are today, while notes
+  that **move** drop out of one. Only the second kind needs their attention.
 - **Reorganise.** Only on an explicit yes. Before writing the config, state how many
   hubs are deleted and how many notes change grouping.
 
