@@ -228,7 +228,7 @@ def main():
     print("  Rules derived from those notes reproduce %s%% of the current grouping "
           "(%d/%d)." % (rep["percent"], rep["reproduced"], rep["total"]))
 
-    def show(label, rows, note):
+    def _show(label, rows, note):
         if not rows:
             return
         print("  %d note(s) %s — %s" % (len(rows), label, note))
@@ -239,9 +239,9 @@ def main():
         if len(rows) > 8:
             print("    ... and %d more" % (len(rows) - 8))
 
-    show("would GAIN a hub", rep["gained"],
+    _show("would GAIN a hub", rep["gained"],
          "still reachable everywhere they are today")
-    show("would MOVE", rep["moved"],
+    _show("would MOVE", rep["moved"],
          "these drop out of a hub, so check them")
     if not rep["gained"] and not rep["moved"]:
         print("  Every note keeps exactly the hubs it has now.")
