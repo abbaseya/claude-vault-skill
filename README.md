@@ -18,7 +18,9 @@ text somebody actually wrote**.
 /plugin install my-vault@abbaseya
 ```
 
-Then, in Claude Code: `/my-vault:sync`.
+Then, in Claude Code, **`/my-vault:setup` first** — it finds your vault and asks a
+handful of questions. After that, `/my-vault:sync` whenever you want to capture
+sessions.
 
 ---
 
@@ -122,9 +124,9 @@ fidelity: verbatim
 
 ## Setup
 
-**You do not need to edit any files.** Install the plugin, then type `/my-vault:sync`.
-Claude notices there is no configuration yet and walks you through it, one question at
-a time.
+**You do not need to edit any files.** Run **`/my-vault:setup`** once after installing.
+It walks you through everything, one question at a time. (`/my-vault:sync` will redirect
+you here if you try it first, but setup is the front door.)
 
 It will:
 
@@ -145,6 +147,11 @@ It will:
 
 4. **Ask what counts as sensitive** — pay, contracts, anything about named people — and
    quarantine those notes in their own folder.
+5. **Look at your vault before proposing how to organise it.** If it already has notes
+   from this plugin, setup does *not* invent a new topic taxonomy over the top. It reads
+   how the vault is already grouped, derives rules that reproduce it, and tells you what
+   percentage they preserve and exactly which notes would still shift. Reorganising is
+   offered, never assumed — an organised vault is yours, not the tool's to rearrange.
 
 If you have never made an Obsidian vault: open Obsidian, choose *Create new vault*, pick
 a name and a folder, then come back and run setup. That's it.

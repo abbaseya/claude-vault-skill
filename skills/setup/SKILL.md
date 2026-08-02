@@ -67,15 +67,47 @@ contracts, anything about specific people?"*
 Offer the defaults, let them add or remove. These become `sensitivity.private_when`,
 and matching notes are filed in the private folder rather than mixed in.
 
-## 6. Suggest topics
+## 6. Topics — LOOK AT THE VAULT BEFORE PROPOSING ANYTHING
 
-Topics are the hubs that group notes. Propose a starting set based on what they said
-in steps 4 and 5, using the template at
-`${CLAUDE_PLUGIN_ROOT}/templates/config.default.json` as the shape.
+Topics are the hubs that group notes. **Most people who want this already have a
+vault, and some already ran an earlier version of this plugin.** Proposing a fresh
+taxonomy over an organised vault deletes every existing hub and rewrites every note's
+`Up:` line on the next sync. Nothing is lost, but nobody asked for it.
 
-Tell them these are a starting point and will be refined once there are real notes to
-look at. **Exactly one topic must have `"fallback": true`** so nothing is ever
-orphaned.
+So inspect first, for **each** vault:
+
+```
+python "${CLAUDE_PLUGIN_ROOT}/scripts/inspect_vault.py" "<vault path>"
+```
+
+### If it reports the vault is not populated
+
+No existing organisation to preserve. Propose a starting set based on what they said in
+steps 4 and 5, using `${CLAUDE_PLUGIN_ROOT}/templates/config.default.json` as the shape.
+Say these are a starting point that can be refined once there are real notes.
+
+### If it reports the vault is ALREADY ORGANISED
+
+Do **not** propose a fresh taxonomy. Show them what is there and offer a choice, using
+the real numbers the script printed:
+
+> *"This vault already has 165 notes organised under 7 topics — AI-Driven Development,
+> Business & M&A, Competitive Positioning, and four more. I can keep that organisation
+> (rules derived from your notes reproduce 95% of it, and 8 notes would shift), or
+> reorganise into fresh topics, which would replace all 7 hubs. Which would you prefer?"*
+
+- **Keep it (default).** Use the `derived_topics` array from `--json` output verbatim.
+  Then tell them plainly which notes still shift — the script lists them — so it is
+  their call, not a surprise.
+- **Reorganise.** Only on an explicit yes. Before writing the config, state how many
+  hubs are deleted and how many notes change grouping.
+
+**Never pick this silently.** A vault someone has curated is theirs.
+
+### Either way
+
+**Exactly one topic must have `"fallback": true`** so nothing is ever orphaned. The
+config validator enforces this and will tell you if it is missing.
 
 ## 7. Write the config and create the folders
 
