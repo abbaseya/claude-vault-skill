@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "user": {
+    "name": "Your Name",
+    "pronouns": "they/them"
+  },
+  "vaults": [
+    {
+      "id": "main",
+      "name": "My Vault",
+      "path": "~/Documents/Obsidian/My Vault",
+      "watch": [
+        "~/Projects"
+      ],
+      "documents": [],
+      "topics": [
+        { "title": "MOC — Decisions",  "types": ["decision"], "tags": [] },
+        { "title": "MOC — Business",   "types": ["business", "pitch"], "tags": ["money", "pricing", "customer"] },
+        { "title": "MOC — Strategy",   "types": ["strategy"], "tags": ["positioning", "competitive", "roadmap"] },
+        { "title": "MOC — Ideas",      "types": ["idea"], "tags": ["idea", "concept", "content"] },
+        { "title": "MOC — People & Work", "types": ["employment"], "tags": ["team", "org", "career"] },
+        { "title": "MOC — Everything Else", "fallback": true }
+      ]
+    }
+  ],
+  "scope": {
+    "preset": "everything-except-technical"
+  },
+  "sensitivity": {
+    "private_when": [
+      "compensation or pay",
+      "contracts and legal terms",
+      "anything about a named person's performance or conduct",
+      "deals that have not been announced"
+    ]
+  }
+}
