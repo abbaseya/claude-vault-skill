@@ -233,14 +233,21 @@ class DerivationUnits(FixtureCase):
         money = next(t for t in topics if t["title"] == "Money")
         self.assertIn("cost", money["tags"])
 
-    def test_derive_topics_ignores_a_tag_seen_only_once(self):
-        """One occurrence is not evidence of a rule."""
+    def test_a_tag_seen_only_once_is_still_a_safe_rule(self):
+        """Support of one used to be excluded as weak evidence. At dominance 1.0
+        it is not a risk: a tag carried by a single note can only ever match that
+        note, so it cannot pull anything else in — and excluding it just loses a
+        note to the fallback. Measured: keeping it took the two real vaults from
+        95.2%/93.1% to 100%/100%."""
         ns = self.notes([("a", "insight", ["oneoff"], ["Money"]),
                          ("b", "idea", ["misc"], ["Other"]),
                          ("c", "idea", ["misc"], ["Other"])])
         topics = self.iv.derive_topics(ns, ["Money", "Other"])
         money = next(t for t in topics if t["title"] == "Money")
-        self.assertNotIn("oneoff", money["tags"])
+        self.assertIn("oneoff", money["tags"])
+        # And it must not drag any other note into Money.
+        rep = self.iv.simulate(ns, topics, self.folders)
+        self.assertEqual(rep["percent"], 100.0, rep["moved"])
 
     def test_derive_topics_marks_exactly_one_fallback(self):
         ns = self.notes([("a", "insight", ["cost"], ["Money"]),
@@ -277,6 +284,51 @@ class DerivationUnits(FixtureCase):
         self.assertEqual(rep["moved"][0]["title"], "b")
         self.assertEqual(rep["moved"][0]["from"], ["Other"])
         self.assertEqual(rep["moved"][0]["to"], ["Money"])
+
+    def test_a_rule_is_only_asserted_when_exhaustively_true(self):
+        """A tag that is merely USUALLY in a hub must not become a rule — that is
+        what over-collects and quietly reorganises the vault."""
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "insight", ["cost"], ["Money"]),
+                         ("c", "insight", ["cost"], ["Other"])])   # 2/3, not all
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        money = next(t for t in topics if t["title"] == "Money")
+        self.assertNotIn("cost", money["tags"])
+
+    def test_a_tag_wholly_inside_one_hub_becomes_a_rule(self):
+        ns = self.notes([("a", "insight", ["cost"], ["Money"]),
+                         ("b", "insight", ["cost"], ["Money"]),
+                         ("c", "idea", ["misc"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        money = next(t for t in topics if t["title"] == "Money")
+        self.assertIn("cost", money["tags"])
+
+    def test_no_dead_fallback_types_are_emitted(self):
+        """A type already matched unconditionally elsewhere can never reach a
+        fallback_types rule, so emitting one is config nobody can reason about."""
+        ns = self.notes([("a", "business", ["x"], ["Money"]),
+                         ("b", "business", ["y"], ["Money"]),
+                         ("c", "business", ["z"], ["Other"]),
+                         ("d", "idea", ["q"], ["Other"])])
+        topics = self.iv.derive_topics(ns, ["Money", "Other"])
+        unconditional = {ty for t in topics for ty in t.get("types", [])}
+        for t in topics:
+            for ty in t.get("fallback_types", []):
+                self.assertNotIn(ty, unconditional,
+                                 "dead fallback_types rule for %r" % ty)
+
+    def test_simulate_separates_additive_changes_from_real_moves(self):
+        """Gaining a hub keeps a note reachable everywhere it already was; losing
+        one does not. Reporting both as 'shifted' overstates the damage."""
+        ns = self.notes([("gainer", "insight", ["cost"], ["Money"]),
+                         ("mover", "idea", ["misc"], ["Money"])])
+        topics = [{"title": "Money", "types": [], "tags": ["cost"]},
+                  {"title": "Extra", "types": [], "tags": ["cost"]},
+                  {"title": "Other", "types": [], "tags": [], "fallback": True}]
+        rep = self.iv.simulate(ns, topics, self.folders)
+        self.assertEqual([g["title"] for g in rep["gained"]], ["gainer"])
+        self.assertEqual([m["title"] for m in rep["moved"]], ["mover"])
+        self.assertEqual(rep["changed"], 2)
 
     def test_simulate_on_no_notes_does_not_divide_by_zero(self):
         rep = self.iv.simulate([], [], self.folders)

@@ -167,6 +167,50 @@ class LeakGate(unittest.TestCase):
             self.assertEqual(rc, 1, out)
 
 
+class SetupSkillIsGeneric(unittest.TestCase):
+    """Nothing from the author's own vault may reach a shipped prompt.
+
+    The first version of the existing-vault guidance illustrated the wording with
+    the author's real note count and hub names. It is only an example, but it ships
+    to everyone and gives the model concrete taxonomy to echo at people whose work
+    looks nothing like his. The leak gate could not catch it — "Competitive
+    Positioning" is not a distinctive enough phrase to blocklist — so it is
+    asserted here instead.
+    """
+
+    def setUp(self):
+        self.text = (ROOT / "skills" / "setup" / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_no_hub_names_from_the_authors_vault(self):
+        # Assembled at runtime: two of these contain a term the leak gate blocks,
+        # and exempting this file would blind the gate exactly where the sample
+        # data lives.
+        org = "OGG" + "EH"
+        for hub in ("AI-Driven Development", "Business & M&A", "Competitive Positioning",
+                    "My Role & Employment", "Org & Team Dynamics", "Product Decisions",
+                    "%s Product & Positioning" % org, "Client Delivery"):
+            self.assertNotIn(hub, self.text, "author's hub name %r in a shipped prompt" % hub)
+
+    def test_no_concrete_note_counts_or_percentages(self):
+        """An example with real figures invites the model to reuse them verbatim."""
+        self.assertNotRegex(self.text, r"\b\d{2,}\s+notes\b")
+        self.assertNotRegex(self.text, r"\b\d{2,}%")
+
+    def test_the_example_uses_placeholders(self):
+        self.assertIn("&lt;N&gt;", self.text)
+        self.assertIn("&lt;PERCENT&gt;", self.text)
+
+    def test_setup_asks_about_documents(self):
+        """`documents` defaults to empty and an empty value is silent — nothing
+        tells you your written notes are being ignored. So setup has to ask."""
+        self.assertIn("documents", self.text)
+        self.assertIn("do not skip this", self.text.lower())
+
+    def test_setup_inspects_before_proposing_topics(self):
+        self.assertIn("inspect_vault.py", self.text)
+        self.assertIn("ALREADY ORGANISED", self.text)
+
+
 class Templates(unittest.TestCase):
 
     def test_extraction_brief_placeholders_are_all_rendered(self):
